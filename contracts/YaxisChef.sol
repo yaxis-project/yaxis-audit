@@ -148,7 +148,7 @@ contract YaxisChef is Ownable {
                 _lastRewardBlock = block.number;
             }
         }
-        bool _isStarted = (block.number >= _lastRewardBlock) && (_lastRewardBlock >= startBlock);
+        bool _isStarted = (_lastRewardBlock <= startBlock) || (_lastRewardBlock <= block.number);
         poolInfo.push(PoolInfo({
             lpToken: _lpToken,
             allocPoint: _allocPoint,

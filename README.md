@@ -19,9 +19,13 @@ truffle compile
 truffle test
 
 ## DiffChecker
-[Diff checker: SushiToken and YaxisToken](https://www.diffchecker.com/...)
+YaxisToken contract: https://etherscan.io/token/0xb1dc9124c395c1e97773ab855d66e879f053a289
 
-[Diff checker: SushiChef and YaxisChef](https://www.diffchecker.com/...)
+YaxisChef (master pool) contract: https://etherscan.io/address/0xc330e7e73717cd13fb6ba068ee871584cf8a194f
+
+[Diff checker: SushiToken and YaxisToken](https://www.diffchecker.com/r2YfRfL3)
+
+[Diff checker: SushiChef and YaxisChef](https://www.diffchecker.com/9RCVQQ0W)
 
 ## Audit
 [Sushiswap - by PeckShield](https://github.com/peckshield/publications/blob/master/audit_reports/PeckShield-Audit-Report-SushiSwap-v1.0.pdf)
