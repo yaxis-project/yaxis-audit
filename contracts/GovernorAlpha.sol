@@ -145,9 +145,9 @@ contract GovernorAlpha {
     /// @notice An event emitted when a proposal has been executed in the Timelock
     event ProposalExecuted(uint id);
 
-    constructor(address timelock_, address susafe_, address guardian_) public {
+    constructor(address timelock_, address yax_, address guardian_) public {
         timelock = TimelockInterface(timelock_);
-        yax = YaxisToken(susafe_);
+        yax = YaxisToken(yax_);
         guardian = guardian_;
     }
 
@@ -159,9 +159,9 @@ contract GovernorAlpha {
 
         uint latestProposalId = latestProposalIds[msg.sender];
         if (latestProposalId != 0) {
-          ProposalState proposersLatestProposalState = state(latestProposalId);
-          require(proposersLatestProposalState != ProposalState.Active, "GovernorAlpha::propose: one live proposal per proposer, found an already active proposal");
-          require(proposersLatestProposalState != ProposalState.Pending, "GovernorAlpha::propose: one live proposal per proposer, found an already pending proposal");
+            ProposalState proposersLatestProposalState = state(latestProposalId);
+            require(proposersLatestProposalState != ProposalState.Active, "GovernorAlpha::propose: one live proposal per proposer, found an already active proposal");
+            require(proposersLatestProposalState != ProposalState.Pending, "GovernorAlpha::propose: one live proposal per proposer, found an already pending proposal");
         }
 
         uint startBlock = add256(block.number, votingDelay());
@@ -182,7 +182,7 @@ contract GovernorAlpha {
             againstVotes: 0,
             canceled: false,
             executed: false
-        });
+            });
 
         proposals[newProposal.id] = newProposal;
         latestProposalIds[newProposal.proposer] = newProposal.id;

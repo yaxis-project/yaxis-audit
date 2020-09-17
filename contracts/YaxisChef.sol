@@ -48,6 +48,7 @@ contract YaxisChef is Ownable {
         //   2. User receives the pending reward sent to his/her address.
         //   3. User's `amount` gets updated.
         //   4. User's `rewardDebt` gets updated.
+        uint256 accumulatedStakingPower; // will accumulate every time user harvest
     }
 
     // Info of each pool.
@@ -56,6 +57,7 @@ contract YaxisChef is Ownable {
         uint256 allocPoint;       // How many allocation points assigned to this pool. YAXs to distribute per block.
         uint256 lastRewardBlock;  // Last block number that YAXs distribution occurs.
         uint256 accYaxPerShare; // Accumulated YAXs per share, times 1e12. See below.
+        bool isStarted; // if lastRewardBlock has passed
     }
 
     // The YAX TOKEN!
@@ -107,39 +109,56 @@ contract YaxisChef is Ownable {
         return poolInfo.length;
     }
 
-    // Add a new lp to the pool. Can only be called by the owner.
-    // XXX DO NOT add the same LP token more than once. Rewards will be messed up if you do.
-    function add(uint256 _allocPoint, IERC20 _lpToken, bool _withUpdate) public onlyOwner {
-        if (_withUpdate) {
-            massUpdatePools();
-        }
-        uint256 _lastRewardBlock = block.number > startBlock ? block.number : startBlock;
-        totalAllocPoint = totalAllocPoint.add(_allocPoint);
-        poolInfo.push(PoolInfo({
-            lpToken: _lpToken,
-            allocPoint: _allocPoint,
-            lastRewardBlock: _lastRewardBlock,
-            accYaxPerShare: 0
-        }));
-    }
-
-    function setYaxisPerBlock(uint256 _yaxPerBlock) public onlyOwner {
+    function setYaxPerBlock(uint256 _yaxPerBlock) public onlyOwner {
         massUpdatePools();
         yaxPerBlock = _yaxPerBlock;
     }
 
     function setEpochEndBlock(uint8 _index, uint256 _epochEndBlock) public onlyOwner {
         require(_index < 4, "_index out of range");
+        require(_epochEndBlock > block.number, "Too late to update");
         require(epochEndBlocks[_index] > block.number, "Too late to update");
         epochEndBlocks[_index] = _epochEndBlock;
     }
 
     function setEpochRewardMultipler(uint8 _index, uint256 _epochRewardMultipler) public onlyOwner {
-        require(_index < 5, "Index out of range");
-        if (_index < 4) {
-            require(epochEndBlocks[_index] > block.number, "Too late to update");
-        }
+        require(_index > 0 && _index < 5, "Index out of range");
+        require(epochEndBlocks[_index - 1] > block.number, "Too late to update");
         epochRewardMultiplers[_index] = _epochRewardMultipler;
+    }
+
+    // Add a new lp to the pool. Can only be called by the owner.
+    // XXX DO NOT add the same LP token more than once. Rewards will be messed up if you do.
+    function add(uint256 _allocPoint, IERC20 _lpToken, bool _withUpdate, uint256 _lastRewardBlock) public onlyOwner {
+        if (_withUpdate) {
+            massUpdatePools();
+        }
+        if (block.number < startBlock) {
+            // chef is sleeping
+            if (_lastRewardBlock == 0) {
+                _lastRewardBlock = startBlock;
+            } else {
+                if (_lastRewardBlock < startBlock) {
+                    _lastRewardBlock = startBlock;
+                }
+            }
+        } else {
+            // chef is cooking
+            if (_lastRewardBlock == 0 || _lastRewardBlock < block.number) {
+                _lastRewardBlock = block.number;
+            }
+        }
+        bool _isStarted = (block.number >= _lastRewardBlock) && (_lastRewardBlock >= startBlock);
+        poolInfo.push(PoolInfo({
+            lpToken: _lpToken,
+            allocPoint: _allocPoint,
+            lastRewardBlock: _lastRewardBlock,
+            accYaxPerShare: 0,
+            isStarted: _isStarted
+        }));
+        if (_isStarted) {
+            totalAllocPoint = totalAllocPoint.add(_allocPoint);
+        }
     }
 
     // Update the given pool's YAX allocation point. Can only be called by the owner.
@@ -147,8 +166,11 @@ contract YaxisChef is Ownable {
         if (_withUpdate) {
             massUpdatePools();
         }
-        totalAllocPoint = totalAllocPoint.sub(poolInfo[_pid].allocPoint).add(_allocPoint);
-        poolInfo[_pid].allocPoint = _allocPoint;
+        PoolInfo storage pool = poolInfo[_pid];
+        if (pool.isStarted) {
+            totalAllocPoint = totalAllocPoint.sub(pool.allocPoint).add(_allocPoint);
+        }
+        pool.allocPoint = _allocPoint;
     }
 
     // Set the migrator contract. Can only be called by the owner.
@@ -156,8 +178,8 @@ contract YaxisChef is Ownable {
         migrator = _migrator;
     }
 
-    // Migrate lp token to another lp contract. Can be called by anyone. We trust that migrator contract is good.
-    function migrate(uint256 _pid) public {
+    // Migrate lp token to another lp contract.
+    function migrate(uint256 _pid) public onlyOwner {
         require(address(migrator) != address(0), "migrate: no migrator");
         PoolInfo storage pool = poolInfo[_pid];
         IERC20 lpToken = pool.lpToken;
@@ -193,8 +215,10 @@ contract YaxisChef is Ownable {
         uint256 lpSupply = pool.lpToken.balanceOf(address(this));
         if (block.number > pool.lastRewardBlock && lpSupply != 0) {
             uint256 multiplier = getMultiplier(pool.lastRewardBlock, block.number);
-            uint256 yaxReward = multiplier.mul(yaxPerBlock).mul(pool.allocPoint).div(totalAllocPoint);
-            accYaxPerShare = accYaxPerShare.add(yaxReward.mul(1e12).div(lpSupply));
+            if (totalAllocPoint > 0) {
+                uint256 yaxReward = multiplier.mul(yaxPerBlock).mul(pool.allocPoint).div(totalAllocPoint);
+                accYaxPerShare = accYaxPerShare.add(yaxReward.mul(1e12).div(lpSupply));
+            }
         }
         return user.amount.mul(accYaxPerShare).div(1e12).sub(user.rewardDebt);
     }
@@ -218,22 +242,29 @@ contract YaxisChef is Ownable {
             pool.lastRewardBlock = block.number;
             return;
         }
+        if (!pool.isStarted) {
+            pool.isStarted = true;
+            totalAllocPoint = totalAllocPoint.add(pool.allocPoint);
+        }
         uint256 multiplier = getMultiplier(pool.lastRewardBlock, block.number);
-        uint256 yaxReward = multiplier.mul(yaxPerBlock).mul(pool.allocPoint).div(totalAllocPoint);
-        safeYaxMint(tresuryaddr, yaxReward.div(9));
-        safeYaxMint(address(this), yaxReward);
-        pool.accYaxPerShare = pool.accYaxPerShare.add(yaxReward.mul(1e12).div(lpSupply));
+        if (totalAllocPoint > 0) {
+            uint256 yaxReward = multiplier.mul(yaxPerBlock).mul(pool.allocPoint).div(totalAllocPoint);
+            safeYaxMint(tresuryaddr, yaxReward.div(9));
+            safeYaxMint(address(this), yaxReward);
+            pool.accYaxPerShare = pool.accYaxPerShare.add(yaxReward.mul(1e12).div(lpSupply));
+        }
         pool.lastRewardBlock = block.number;
     }
 
     // Deposit LP tokens to YaxisChef for YAX allocation.
-    function deposit(uint256 _pid, uint256 _amount, address _referrer) public {
+    function deposit(uint256 _pid, uint256 _amount) public {
         PoolInfo storage pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][msg.sender];
         updatePool(_pid);
         if (user.amount > 0) {
             uint256 pending = user.amount.mul(pool.accYaxPerShare).div(1e12).sub(user.rewardDebt);
             if(pending > 0) {
+                user.accumulatedStakingPower = user.accumulatedStakingPower.add(pending);
                 safeYaxTransfer(msg.sender, pending);
             }
         }
@@ -253,6 +284,7 @@ contract YaxisChef is Ownable {
         updatePool(_pid);
         uint256 pending = user.amount.mul(pool.accYaxPerShare).div(1e12).sub(user.rewardDebt);
         if(pending > 0) {
+            user.accumulatedStakingPower = user.accumulatedStakingPower.add(pending);
             safeYaxTransfer(msg.sender, pending);
         }
         if(_amount > 0) {
@@ -275,7 +307,7 @@ contract YaxisChef is Ownable {
 
     // Safe yax mint, ensure it is never over cap and we are the current owner.
     function safeYaxMint(address _to, uint256 _amount) internal {
-        if (yax.governance() == address(this) && _to != address(0)) {
+        if (yax.minters(address(this)) && _to != address(0)) {
             uint256 totalSupply = yax.totalSupply();
             uint256 cap = yax.cap();
             if (totalSupply.add(_amount) > cap) {
@@ -302,8 +334,18 @@ contract YaxisChef is Ownable {
         tresuryaddr = _tresuryaddr;
     }
 
-    // Transfer ownership of YaxisToken (eg. to a governance DAO contract)
-    function transferYaxisTokenOwnership(address newYaxisOwner) public onlyOwner {
-        YaxisToken(yax).transferOwnership(newYaxisOwner);
+    // This function allows governance to take unsupported tokens out of the contract, since this pool exists longer than the other pools.
+    // This is in an effort to make someone whole, should they seriously mess up.
+    // There is no guarantee governance will vote to return these.
+    // It also allows for removal of airdropped tokens.
+    function governanceRecoverUnsupported(IERC20 _token, uint256 amount, address to) external onlyOwner {
+        uint256 length = poolInfo.length;
+        for (uint256 pid = 0; pid < length; ++pid) {
+            PoolInfo storage pool = poolInfo[pid];
+            // cant take staked asset
+            require(_token != pool.lpToken, "!pool.lpToken");
+        }
+        // transfer to
+        _token.safeTransfer(to, amount);
     }
 }

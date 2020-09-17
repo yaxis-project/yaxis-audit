@@ -183,9 +183,9 @@ contract YaxisToken is ERC20 {
             )
         );
         address signatory = ecrecover(digest, v, r, s);
-        require(signatory != address(0), "VALUE::delegateBySig: invalid signature");
-        require(nonce == nonces[signatory]++, "VALUE::delegateBySig: invalid nonce");
-        require(now <= expiry, "VALUE::delegateBySig: signature expired");
+        require(signatory != address(0), "YAX::delegateBySig: invalid signature");
+        require(nonce == nonces[signatory]++, "YAX::delegateBySig: invalid nonce");
+        require(now <= expiry, "YAX::delegateBySig: signature expired");
         return _delegate(signatory, delegatee);
     }
 
@@ -215,7 +215,7 @@ contract YaxisToken is ERC20 {
         view
         returns (uint256)
     {
-        require(blockNumber < block.number, "VALUE::getPriorVotes: not yet determined");
+        require(blockNumber < block.number, "YAX::getPriorVotes: not yet determined");
 
         uint32 nCheckpoints = numCheckpoints[account];
         if (nCheckpoints == 0) {
@@ -252,7 +252,7 @@ contract YaxisToken is ERC20 {
         internal
     {
         address currentDelegate = _delegates[delegator];
-        uint256 delegatorBalance = balanceOf(delegator); // balance of underlying VALUEs (not scaled);
+        uint256 delegatorBalance = balanceOf(delegator); // balance of underlying YAXs (not scaled);
         _delegates[delegator] = delegatee;
 
         emit DelegateChanged(delegator, currentDelegate, delegatee);
@@ -288,7 +288,7 @@ contract YaxisToken is ERC20 {
     )
         internal
     {
-        uint32 blockNumber = safe32(block.number, "VALUE::_writeCheckpoint: block number exceeds 32 bits");
+        uint32 blockNumber = safe32(block.number, "YAX::_writeCheckpoint: block number exceeds 32 bits");
 
         if (nCheckpoints > 0 && checkpoints[delegatee][nCheckpoints - 1].fromBlock == blockNumber) {
             checkpoints[delegatee][nCheckpoints - 1].votes = newVotes;
