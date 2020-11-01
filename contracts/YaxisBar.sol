@@ -132,12 +132,16 @@ contract YaxisBar is ERC20("Staked yAxis", "sYAX") {
     function incentive_apy() external view returns (uint) {
         uint _ts = totalSupply();
         if (_ts == 0) return 0;
+        return yaxPerBlock().mul(2400000).mul(10000).div(_ts); // approximately 2,400,000 blocks / year
+    }
+
+    // @dev return current reward (YAX) per block
+    function yaxPerBlock() public view returns (uint) {
         uint _block = block.number;
         if (_block <= epEndBlks[0] || _block >= epEndBlks[5]) return 0;
         for (uint8 _epid = 1; _epid < 6; ++_epid) {
             if (_block < epEndBlks[_epid]) {
-                uint _earnedPerYear = epRwdPerBlks[_epid - 1].mul(2400000); // approximately 2,400,000 blocks / year
-                return _earnedPerYear.mul(10000).div(_ts);
+                return epRwdPerBlks[_epid - 1];
             }
         }
         return 0;
