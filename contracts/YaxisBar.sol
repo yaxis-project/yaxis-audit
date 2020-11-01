@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 
 // YaxisBar is the coolest bar in town. You come in with some YAX, and leave with more! The longer you stay, the more YAX you get.
 // This contract handles swapping to and from sYAX, Yaxis's staking token.
-contract YaxisBar is ERC20("Staked yAxis", "sYAX"){
+contract YaxisBar is ERC20("Staked yAxis", "sYAX") {
     using SafeMath for uint;
 
     IERC20 public yax;
