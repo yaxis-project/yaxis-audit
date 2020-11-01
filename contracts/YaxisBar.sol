@@ -115,6 +115,34 @@ contract YaxisBar is ERC20("Staked yAxis", "sYAX"){
         return (_ts == 0) ? 1e18 : availableBalance().mul(1e18).div(_ts);
     }
 
+    // @dev expected compounded APY mul 10000 (for decimal precision)
+    function compounded_apy() external view returns (uint) {
+        uint _ts = totalSupply();
+        if (_ts == 0) return 0;
+        uint _block = block.number;
+        if (_block <= epEndBlks[0]) return 0;
+        uint _released = releasedRewards();
+        uint _ab = availableBalance();
+        uint _extraYield = (_ab <= _ts) ? 0 : _ab.sub(_ts);
+        uint _earnedPerYear = _released.add(_extraYield).mul(2400000).div(_block.sub(epEndBlks[0])); // approximately 2,400,000 blocks / year
+        return _earnedPerYear.mul(10000).div(_ts);
+    }
+
+    // @dev expected incentive APY (unstable) mul 10000 (for decimal precision)
+    function incentive_apy() external view returns (uint) {
+        uint _ts = totalSupply();
+        if (_ts == 0) return 0;
+        uint _block = block.number;
+        if (_block <= epEndBlks[0] || _block >= epEndBlks[5]) return 0;
+        for (uint8 _epid = 1; _epid < 6; ++_epid) {
+            if (_block < epEndBlks[_epid]) {
+                uint _earnedPerYear = epRwdPerBlks[_epid - 1].mul(2400000); // approximately 2,400,000 blocks / year
+                return _earnedPerYear.mul(10000).div(_ts);
+            }
+        }
+        return 0;
+    }
+
     // This function allows governance to take unsupported tokens (non-core) out of the contract. This is in an effort to make someone whole, should they seriously mess up.
     // There is no guarantee governance will vote to return these. It also allows for removal of airdropped tokens.
     function governanceRecoverUnsupported(IERC20 _token, uint256 _amount, address _to) external {

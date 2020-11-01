@@ -8,12 +8,6 @@ const MockERC20 = artifacts.require('MockERC20');
 
 const verbose = process.env.VERBOSE;
 
-async function advanceBlocks(blocks) {
-    for (let i = 0; i < blocks; i++) {
-        await time.advanceBlock();
-    }
-}
-
 contract('YaxisBar.test', async (accounts) => {
     const { toWei } = web3.utils;
     const { fromWei } = web3.utils;
@@ -142,6 +136,8 @@ contract('YaxisBar.test', async (accounts) => {
             const priceAfter = Number(fromWei(await bar.getPricePerFullShare()));
             if (verbose) {
                 console.log('[after]  bar.getPricePerFullShare = %s', String(priceAfter));
+                console.log('[after]  bar.compounded_apy = %s', String(await bar.compounded_apy()));
+                console.log('[after]  bar.incentive_apy = %s', String(await bar.incentive_apy()));
             }
             expect(priceAfter).to.be.greaterThan(priceBefore, 'priceAfter must be greater than priceBefore');
         });
