@@ -1,9 +1,9 @@
 const {expectRevert} = require('@openzeppelin/test-helpers');
-const YaxisToken = artifacts.require('YaxisToken');
+const YaxisBar = artifacts.require('YaxisBar');
 
-contract('YaxisToken', ([alice, bob, carol]) => {
+contract('YaxisBar', ([alice, bob, carol]) => {
     beforeEach(async () => {
-        this.yax = await YaxisToken.new(1000000, {from: alice});
+        this.yax = await YaxisBar.new(1000000, {from: alice});
     });
 
     it('should have correct name and symbol and decimal', async () => {
